@@ -29,6 +29,7 @@ class PresentationDisplaysPlugin : FlutterPlugin, ActivityAware, MethodChannel.M
   private var flutterEngineChannel: MethodChannel? = null
   private var context: Context? = null
   private var presentation: PresentationDisplay? = null
+}
 
   override fun onAttachedToEngine(
       @NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding
