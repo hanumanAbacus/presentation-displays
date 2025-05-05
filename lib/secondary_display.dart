@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:presentation_displays/displays_manager.dart';
@@ -39,10 +42,23 @@ class _SecondaryDisplayState extends State<SecondaryDisplay> {
     return widget.child;
   }
 
-  _addListenerForPresentation(ArgumentsCallback function) {
-    _presentationMethodChannel = MethodChannel(_presentationChannel);
-    _presentationMethodChannel?.setMethodCallHandler((call) async {
-      function(call.arguments);
-    });
+  void _addListenerForPresentation(ArgumentsCallback function) {
+    if (Platform.isWindows) {
+      DesktopMultiWindow.setMethodHandler((call, fromWindowId) async {
+        if (call.method == 'transferData') {
+          function(call.arguments);
+        } else if (call.method == 'close') {
+          // Future.delayed(const Duration(milliseconds: 200), () {
+          //   // Graceful shutdown
+          //   WidgetsBinding.instance.platformDispatcher.terminate();
+          // });
+        }
+      });
+    } else {
+      _presentationMethodChannel = MethodChannel(_presentationChannel);
+      _presentationMethodChannel?.setMethodCallHandler((call) async {
+        function(call.arguments);
+      });
+    }
   }
 }

@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:presentation_displays/display.dart';
@@ -9,6 +12,8 @@ const _listDisplay = "listDisplay";
 const _showPresentation = "showPresentation";
 const _hidePresentation = "hidePresentation";
 const _transferDataToPresentation = "transferDataToPresentation";
+
+int? _desktopWindowId;
 
 /// Display category: secondary display.
 /// <p>
@@ -112,14 +117,24 @@ class DisplayManager {
   /// </P>
   ///
   /// return [Future<bool>] about the status has been display or not
-  Future<bool?>? showSecondaryDisplay(
-      {required int displayId, required String routerName}) async {
+  Future<bool?> showSecondaryDisplay({
+    required int displayId,
+    required String routerName,
+  }) async {
+    if (Platform.isWindows) {
+      final window = await DesktopMultiWindow.createWindow(jsonEncode({
+        'routerName': routerName,
+        'displayId': displayId,
+      }));
+      _desktopWindowId = window.windowId;
+      await window.show();
+      return true;
+    }
+
     return await _displayMethodChannel?.invokeMethod<bool?>(
-        _showPresentation,
-        "{"
-        "\"displayId\": $displayId,"
-        "\"routerName\": \"$routerName\""
-        "}");
+      _showPresentation,
+      jsonEncode({'displayId': displayId, 'routerName': routerName}),
+    );
   }
 
   /// Hides secondary display that is attached to the specified display
@@ -128,12 +143,17 @@ class DisplayManager {
   /// </P>
   ///
   /// return [Future<bool>] about the status has been display or not
-  Future<bool?>? hideSecondaryDisplay({required int displayId}) async {
+  Future<bool?> hideSecondaryDisplay({required int displayId}) async {
+    if (Platform.isWindows && _desktopWindowId != null) {
+      await DesktopMultiWindow.invokeMethod(_desktopWindowId!, 'close');
+      _desktopWindowId = null;
+      return true;
+    }
+
     return await _displayMethodChannel?.invokeMethod<bool?>(
-        _hidePresentation,
-        "{"
-        "\"displayId\": $displayId"
-        "}");
+      _hidePresentation,
+      jsonEncode({'displayId': displayId}),
+    );
   }
 
   /// Transfer data to a secondary display
@@ -188,9 +208,17 @@ class DisplayManager {
   /// </p>
   ///
   /// return [Future<bool>] the value to determine whether or not the data has been transferred successfully
-  Future<bool?>? transferDataToPresentation(dynamic arguments) async {
+  Future<bool?> transferDataToPresentation(dynamic arguments) async {
+    if (Platform.isWindows && _desktopWindowId != null) {
+      await DesktopMultiWindow.invokeMethod(
+          _desktopWindowId!, 'transferData', arguments);
+      return true;
+    }
+
     return await _displayMethodChannel?.invokeMethod<bool?>(
-        _transferDataToPresentation, arguments);
+      _transferDataToPresentation,
+      arguments,
+    );
   }
 
   /// Subscribe to the stream to get notifications about connected / disconnected displays
