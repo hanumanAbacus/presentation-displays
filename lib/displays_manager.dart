@@ -120,7 +120,7 @@ class DisplayManager {
   Future<bool?> showSecondaryDisplay({
     required int displayId,
     required String routerName,
-    required Size size,
+    Size? size,
   }) async {
     if (Platform.isWindows) {
       final window = await DesktopMultiWindow.createWindow(jsonEncode({
@@ -128,7 +128,7 @@ class DisplayManager {
         'displayId': displayId,
       }));
       _desktopWindowId = window.windowId;
-      await window.setFrame(const Offset(0, 0) & size);
+      await window.setFrame(const Offset(0, 0) & (size ?? const Size(1280, 720)));
       await window.show();
       return true;
     }
