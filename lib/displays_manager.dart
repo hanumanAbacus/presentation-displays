@@ -120,6 +120,7 @@ class DisplayManager {
   Future<bool?> showSecondaryDisplay({
     required int displayId,
     required String routerName,
+    required Size size,
   }) async {
     if (Platform.isWindows) {
       final window = await DesktopMultiWindow.createWindow(jsonEncode({
@@ -127,6 +128,7 @@ class DisplayManager {
         'displayId': displayId,
       }));
       _desktopWindowId = window.windowId;
+      await window.setFrame(const Offset(0, 0) & size);
       await window.show();
       return true;
     }
@@ -144,16 +146,19 @@ class DisplayManager {
   ///
   /// return [Future<bool>] about the status has been display or not
   Future<bool?> hideSecondaryDisplay({required int displayId}) async {
-    if (Platform.isWindows && _desktopWindowId != null) {
-      await DesktopMultiWindow.invokeMethod(_desktopWindowId!, 'close');
-      _desktopWindowId = null;
-      return true;
+    if (Platform.isWindows) {
+      final result =  await invokeDesktopMultiWindowMethod('close');
+      if(result){
+        _desktopWindowId = null;
+      }
+      return result;
     }
-
+    
     return await _displayMethodChannel?.invokeMethod<bool?>(
       _hidePresentation,
       jsonEncode({'displayId': displayId}),
     );
+   
   }
 
   /// Transfer data to a secondary display
@@ -209,10 +214,8 @@ class DisplayManager {
   ///
   /// return [Future<bool>] the value to determine whether or not the data has been transferred successfully
   Future<bool?> transferDataToPresentation(dynamic arguments) async {
-    if (Platform.isWindows && _desktopWindowId != null) {
-      await DesktopMultiWindow.invokeMethod(
-          _desktopWindowId!, 'transferData', arguments);
-      return true;
+    if (Platform.isWindows) {
+      return await invokeDesktopMultiWindowMethod('transferData', arguments);
     }
 
     return await _displayMethodChannel?.invokeMethod<bool?>(
@@ -225,5 +228,24 @@ class DisplayManager {
   /// Streams [1] for new connected display and [0] for disconnected display
   Stream<int?>? get connectedDisplaysChangedStream {
     return _displayEventChannel?.receiveBroadcastStream().cast();
+  }
+
+  Future<bool> invokeDesktopMultiWindowMethod(String method,
+      [dynamic arguments]) async {
+    bool result = false;
+    try {
+      if (_desktopWindowId != null) {
+        await DesktopMultiWindow.invokeMethod(
+            _desktopWindowId!, method, arguments);
+            result = true;
+      } else{
+        result = true;
+      }
+    } on PlatformException catch (e) {
+        if(e.message =='target window not found.'){ 
+          return true;
+        }
+    }
+    return result;
   }
 }
