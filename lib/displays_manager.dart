@@ -147,7 +147,7 @@ class DisplayManager {
   /// return [Future<bool>] about the status has been display or not
   Future<bool?> hideSecondaryDisplay({required int displayId}) async {
     if (Platform.isWindows) {
-      final result =  await invokeDesktopMultiWindowMethod('close');
+      final result =  await invokeDesktopMultiWindowMethod('close', _desktopWindowId);
       if(result){
         _desktopWindowId = null;
       }
