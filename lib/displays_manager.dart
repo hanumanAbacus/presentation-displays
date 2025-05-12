@@ -13,8 +13,6 @@ const _showPresentation = "showPresentation";
 const _hidePresentation = "hidePresentation";
 const _transferDataToPresentation = "transferDataToPresentation";
 
-int? _desktopWindowId;
-
 /// Display category: secondary display.
 /// <p>
 /// This category can be used to identify secondary displays that are suitable for
@@ -41,6 +39,7 @@ class DisplayManager {
 
   late MethodChannel? _displayMethodChannel;
   late EventChannel? _displayEventChannel;
+  WindowController? window;
 
   DisplayManager() {
     _displayMethodChannel = MethodChannel(_displayMethodChannelId);
@@ -123,14 +122,18 @@ class DisplayManager {
     Size? size,
   }) async {
     if (Platform.isWindows) {
-      final window = await DesktopMultiWindow.createWindow(jsonEncode({
+      window = await DesktopMultiWindow.createWindow(jsonEncode({
         'routerName': routerName,
         'displayId': displayId,
       }));
-      _desktopWindowId = window.windowId;
-      await window.setFrame(const Offset(0, 0) & (size ?? const Size(1280, 720)));
-      await window.show();
-      return true;
+      if (window != null) {
+        await window!
+            .setFrame(const Offset(0, 0) & (size ?? const Size(1280, 720)));
+        await window!.show();
+        return true;
+      } else {
+        return false;
+      }
     }
 
     return await _displayMethodChannel?.invokeMethod<bool?>(
@@ -147,18 +150,14 @@ class DisplayManager {
   /// return [Future<bool>] about the status has been display or not
   Future<bool?> hideSecondaryDisplay({required int displayId}) async {
     if (Platform.isWindows) {
-      final result =  await invokeDesktopMultiWindowMethod('close', _desktopWindowId);
-      if(result){
-        _desktopWindowId = null;
-      }
-      return result;
+      await window?.close();
+      return true;
     }
-    
+
     return await _displayMethodChannel?.invokeMethod<bool?>(
       _hidePresentation,
       jsonEncode({'displayId': displayId}),
     );
-   
   }
 
   /// Transfer data to a secondary display
@@ -234,17 +233,18 @@ class DisplayManager {
       [dynamic arguments]) async {
     bool result = false;
     try {
+      final _desktopWindowId = window?.windowId;
       if (_desktopWindowId != null) {
         await DesktopMultiWindow.invokeMethod(
-            _desktopWindowId!, method, arguments);
-            result = true;
-      } else{
+            _desktopWindowId, method, arguments);
+        result = true;
+      } else {
         result = true;
       }
     } on PlatformException catch (e) {
-        if(e.message =='target window not found.'){ 
-          return true;
-        }
+      if (e.message == 'target window not found.') {
+        return true;
+      }
     }
     return result;
   }
